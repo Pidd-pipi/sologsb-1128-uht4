@@ -1,12 +1,26 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Location, MapLocation, Tickets, Van } from '@element-plus/icons-vue';
 import { useUiStore } from './stores/uiStore';
+import { useDataSync } from './hooks/useDataSync';
 
 const route = useRoute();
 const uiStore = useUiStore();
+
+// 订阅其他标签页的提交：泊位 / 流水变化后本页自动重算，并给值班员一条提示
+useDataSync(() => {
+  ElMessage.info('另一标签页已更新登记数据，本页泊位与流水已同步重算');
+});
+
+onMounted(() => {
+  if (uiStore.notices.length) {
+    for (const notice of uiStore.consumeNotices()) {
+      ElMessage({ message: notice.text, type: notice.type });
+    }
+  }
+});
 
 const activePath = computed(() => {
   const path = route.path;

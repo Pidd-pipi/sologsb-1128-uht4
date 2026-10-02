@@ -167,8 +167,8 @@ export const SEED_VESSELS: FishingVessel[] = [
   },
 ];
 
-/** 初始进出港流水 */
-export const SEED_CALLS: PortCall[] = [
+/** 初始进出港流水（历史流水没有泊位版本快照，落库时统一补 version=1 / berthVersion=null） */
+export const SEED_CALLS: Array<Omit<PortCall, 'version' | 'berthVersion'>> = [
   {
     id: 'c-3001',
     vesselId: 'v-2001',
@@ -284,7 +284,9 @@ export async function ensureSeedData(): Promise<void> {
   if (portCount === 0) {
     await db.ports.bulkPut(toPlain(SEED_PORTS));
     await db.vessels.bulkPut(toPlain(SEED_VESSELS));
-    await db.calls.bulkPut(toPlain(SEED_CALLS));
+    await db.calls.bulkPut(
+      toPlain(SEED_CALLS.map((call) => ({ ...call, version: 1, berthVersion: null } satisfies PortCall))),
+    );
   }
   const ports = await db.ports.toArray();
   for (const port of ports) {

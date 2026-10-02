@@ -30,6 +30,16 @@ export interface PortCall {
   /** 签证状态 */
   visaStatus: VisaStatus;
   createdAt: string;
+  /**
+   * 进出港记录版本号（乐观锁审计用）：新建即为 1。
+   */
+  version: number;
+  /**
+   * 提交时所依据的泊位版本号快照。
+   * 登记在同一事务内重读泊位：泊位版本已变化（另一标签页先提交）即整笔拒绝。
+   * 迁移回填的历史流水没有可依据的泊位快照，统一为 null，不参与占用补造。
+   */
+  berthVersion: number | null;
 }
 
 /** 进出港登记表单模型 */
@@ -42,6 +52,8 @@ export interface CallDraft {
   fuelL: number;
   unloadKg: number;
   visaStatus: VisaStatus;
+  /** 选中泊位时的版本号；提交时作为乐观锁依据，null 表示尚未取得版本快照 */
+  berthVersion: number | null;
 }
 
 export function emptyCallDraft(berthNo = ''): CallDraft {
@@ -54,5 +66,6 @@ export function emptyCallDraft(berthNo = ''): CallDraft {
     fuelL: 0,
     unloadKg: 0,
     visaStatus: '待签证',
+    berthVersion: null,
   };
 }

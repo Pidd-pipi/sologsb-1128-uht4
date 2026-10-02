@@ -22,6 +22,12 @@ export interface Berth {
   status: BerthStatus;
   /** 泊位设计水深 m */
   designDepth: number;
+  /**
+   * 泊位记录版本号（乐观锁）：每次占用 / 释放 / 维修切换都 +1。
+   * 进出港登记提交时必须带入选中时的版本号，事务内不一致即整笔拒绝。
+   * 旧数据迁移时回填为 1，不补造任何占用关系。
+   */
+  version: number;
 }
 
 /** 泊位占用聚合结果（useBerthStatus 输出） */

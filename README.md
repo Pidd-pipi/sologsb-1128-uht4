@@ -44,9 +44,9 @@ sologsb-1128/
 │   └── src/
 │       ├── types/              # port.ts / vessel.ts / call.ts / berth.ts（4 个数据模型）
 │       ├── stores/             # portStore.ts / vesselStore.ts / uiStore.ts
-│       ├── db/                 # index.ts（Dexie v1→v3 迁移）/ berth.ts / seed.ts
+│       ├── db/                 # index.ts（Dexie v1→v4 迁移）/ berth.ts / seed.ts / sync.ts（跨标签页通知）
 │       ├── components/common/  # PortCard / BerthGrid / VesselSpecTable / MapPanel / EmptyState
-│       ├── hooks/              # useAmapLoader / useBerthStatus / useLocalDraft
+│       ├── hooks/              # useAmapLoader / useBerthStatus / useLocalDraft / useDataSync
 │       ├── pages/              # PortList / PortDetail / VesselList / VesselDetail / CallBoard / MapView
 │       ├── router/index.ts
 │       └── utils/              # tonnage.ts / geo.ts / format.ts
@@ -70,7 +70,12 @@ sologsb-1128/
   - `v1`：建 `ports`、`vessels` 表
   - `v2`：新增 `calls` 表与 `vesselId` 索引
   - `v3`：新增 `berths` 表，并按每个渔港登记的泊位数生成初始泊位记录
-- **表单草稿走 localStorage**（键前缀 `gbfishport:draft:`），例如进出港登记草稿 `gbfishport:draft:call-board`，提交成功后自动清空。
+  - `v4`：为泊位与进出港记录补乐观锁版本号（`berths.version`、`calls.version`、`calls.berthVersion`）。迁移只回填版本（旧泊位 `version=1`、历史流水 `version=1` 且 `berthVersion=null`），**不按历史流水反推或补造任何占用关系**
+- **并发登记（多标签页乐观锁 + 原子事务）**：值班室常开两个标签页时，选中泊位即记下该泊位的版本号；保存登记时在**同一个 IndexedDB 读写事务**内写入流水与泊位，提交前重新核对泊位：
+  - 泊位版本已变化（另一标签页抢先提交）、进港时泊位已占用、出港时泊位已释放、泊位处于维修 → 抛 `BerthConflictError`，整笔回滚，表单内容（渔船、时间、冰/油/货量等）原样保留，仅作废旧泊位选择，等对方处理后重新选择
+  - 维修泊位在下拉、网格点击与事务内核验三处都不能被进出港登记绕过
+  - 提交成功后通过 `BroadcastChannel`（不支持时降级为 `storage` 事件）通知其他标签页，对方自动重载数据，渔港一览、泊位网格、地图摘要与渔船时间线随即重算；泊位状态一变，另一页停留的旧选中立即作废并提示
+- **表单草稿走 localStorage**（键前缀 `gbfishport:draft:`），例如进出港登记草稿 `gbfishport:draft:call-board`，提交成功后自动清空；冲突拒绝不清草稿。
 - 首次打开会自动写入一组演示数据（4 座渔港、6 艘渔船、8 条进出港流水与对应泊位），便于直接查看各页面效果。
 - 容器无状态：不使用数据库服务、不挂载命名卷，清空浏览器站点数据即可重置。
 
