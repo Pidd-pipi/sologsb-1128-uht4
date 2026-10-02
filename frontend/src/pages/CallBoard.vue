@@ -8,12 +8,15 @@ import { useLocalDraft } from '../hooks/useLocalDraft';
 import { useBerthStatus } from '../hooks/useBerthStatus';
 import BerthGrid from '../components/common/BerthGrid.vue';
 import EmptyState from '../components/common/EmptyState.vue';
-import type { Berth } from '../types/berth';
+import type { Berth, BerthStatus } from '../types/berth';
+import { BerthConflictError } from '../types/berth';
 import { CALL_TYPES, VISA_STATUSES, emptyCallDraft, type CallDraft, type CallType } from '../types/call';
 import { formatDateTime, formatNumber, isToday, nowLocalInputValue, toPlain } from '../utils/format';
 
 interface CallForm extends CallDraft {
   portId: string;
+  /** 选中泊位时的乐观锁版本号，提交时核对 */
+  berthVersion: number;
 }
 
 const router = useRouter();
@@ -23,6 +26,7 @@ const vesselStore = useVesselStore();
 const { draft, restored, savedAt, storageKey, persist, restore, clearDraft } = useLocalDraft<CallForm>('call-board', () => ({
   ...emptyCallDraft(),
   portId: '',
+  berthVersion: 0,
   time: nowLocalInputValue(),
 }));
 const form = draft;
@@ -61,6 +65,9 @@ const berthKey = computed({
     form.value.portId = portId ?? '';
     form.value.berthNo = berthNo ?? '';
     focusPortId.value = portId ?? '';
+    // 捕获选中泊位的版本号，作为提交时的乐观锁依据
+    const berth = portStore.berths.find((b) => b.portId === portId && b.berthNo === berthNo);
+    form.value.berthVersion = berth?.version ?? 0;
   },
 });
 
@@ -123,6 +130,24 @@ watch(
   },
 );
 
+// 泊位状态变化后（含其他标签页提交后触发的 reload），立即作废旧选中：
+// 进港要求仍为「空闲」，出港要求仍为「占用」，且维修泊位一律不可选。
+watch(
+  () => portStore.berths,
+  (berths: Berth[]) => {
+    if (!form.value.portId || !form.value.berthNo) return;
+    const berth = berths.find((b) => b.portId === form.value.portId && b.berthNo === form.value.berthNo);
+    const wanted: BerthStatus = form.value.type === '进港' ? '空闲' : '占用';
+    // wanted 只会是「空闲」或「占用」，泊位为「维修」时 berth.status === wanted 必然不成立
+    const valid = !!berth && berth.status === wanted;
+    if (!valid) {
+      berthKey.value = '';
+      ElMessage.warning('所选泊位状态已变化，请重新选择泊位');
+    }
+  },
+  { deep: true },
+);
+
 function selectBerth(berth: Berth): void {
   berthKey.value = `${berth.portId}|${berth.berthNo}`;
   ElMessage.info(`已选择 ${berth.berthNo}`);
@@ -148,17 +173,29 @@ async function submit(): Promise<void> {
       unloadKg: Number(form.value.unloadKg) || 0,
       visaStatus: form.value.visaStatus,
     };
-    const call = await portStore.registerCall(payload, selectedVessel.value.name, form.value.portId);
+    const call = await portStore.registerCall(
+      payload,
+      selectedVessel.value.name,
+      form.value.portId,
+      form.value.berthVersion,
+    );
     ElMessage.success(`已登记 ${call.vesselName} ${call.type} · 泊位 ${call.berthNo}`);
     clearDraft();
     Object.assign(form.value, {
       ...emptyCallDraft(),
       portId: '',
+      berthVersion: 0,
       time: nowLocalInputValue(),
     });
     focusPortId.value = '';
   } catch (error) {
-    ElMessage.error(`登记失败：${(error as Error).message}`);
+    if (error instanceof BerthConflictError) {
+      // 泊位已被其他值班员 / 标签页改动：保留表单，清空旧选中，等对方处理后重选
+      ElMessage.warning(`${error.message}，表单已保留，请重新选择泊位`);
+      berthKey.value = '';
+    } else {
+      ElMessage.error(`登记失败：${(error as Error).message}`);
+    }
   } finally {
     submitting.value = false;
   }

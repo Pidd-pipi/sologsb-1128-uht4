@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Location, MapLocation, Tickets, Van } from '@element-plus/icons-vue';
 import { useUiStore } from './stores/uiStore';
+import { usePortStore } from './stores/portStore';
+import { useVesselStore } from './stores/vesselStore';
+import { onDataChanged } from './utils/crossTab';
 
 const route = useRoute();
 const uiStore = useUiStore();
+const portStore = usePortStore();
+const vesselStore = useVesselStore();
+
+// 其他标签页写入后，本页立即重拉数据，驱动渔港一览、泊位网格、地图摘要、渔船时间线重算
+onMounted(() => {
+  const stop = onDataChanged(() => {
+    void Promise.all([portStore.loadAll(), vesselStore.loadAll()]);
+  });
+  onBeforeUnmount(stop);
+});
 
 const activePath = computed(() => {
   const path = route.path;

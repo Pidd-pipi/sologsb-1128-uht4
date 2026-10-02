@@ -7,7 +7,8 @@ import { buildBerthRecords } from './berth';
 
 /**
  * gbfishport-db：库名固定为 gbfishport-db
- * v1 建 ports / vessels；v2 新增 calls 表与 vesselId 索引；v3 新增 berths 表并按泊位数生成初始记录。
+ * v1 建 ports / vessels；v2 新增 calls 表与 vesselId 索引；v3 新增 berths 表并按泊位数生成初始记录；
+ * v4 为 berths / calls 回填乐观锁版本号（不补造占用关系，仅给缺少 version 的记录补 1）。
  */
 export class FishPortDatabase extends Dexie {
   ports!: Table<FishingPort, string>;
@@ -52,6 +53,29 @@ export class FishPortDatabase extends Dexie {
             await berthTable.bulkPut(buildBerthRecords(port));
           }
         }
+      });
+
+    this.version(4)
+      .stores({
+        berths: 'id, portId, berthNo, status, vesselId, version',
+        calls: 'id, vesselId, type, time, version',
+      })
+      .upgrade(async (tx) => {
+        // v4 迁移：回填乐观锁版本号。
+        // 只给缺少 version 的记录补 1，**不补造占用关系**——
+        // 泊位的 vesselId / status 保持 v3 迁移后的现状，不从历史流水反推占用。
+        await tx
+          .table<Berth, string>('berths')
+          .toCollection()
+          .modify((berth) => {
+            if (berth.version === undefined || berth.version === null) berth.version = 1;
+          });
+        await tx
+          .table<PortCall, string>('calls')
+          .toCollection()
+          .modify((call) => {
+            if (call.version === undefined || call.version === null) call.version = 1;
+          });
       });
   }
 }

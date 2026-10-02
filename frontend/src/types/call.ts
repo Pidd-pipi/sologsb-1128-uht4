@@ -29,6 +29,8 @@ export interface PortCall {
   unloadKg: number;
   /** 签证状态 */
   visaStatus: VisaStatus;
+  /** 乐观锁版本号：登记记录自身的版本，随泊位状态一并迁移回填 */
+  version: number;
   createdAt: string;
 }
 

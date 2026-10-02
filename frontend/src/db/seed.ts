@@ -180,6 +180,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 800,
     unloadKg: 8600,
     visaStatus: '已签证',
+    version: 1,
     createdAt: hoursAgo(5),
   },
   {
@@ -193,6 +194,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 1200,
     unloadKg: 12400,
     visaStatus: '已签证',
+    version: 1,
     createdAt: hoursAgo(3),
   },
   {
@@ -206,6 +208,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 0,
     unloadKg: 5200,
     visaStatus: '待签证',
+    version: 1,
     createdAt: hoursAgo(2),
   },
   {
@@ -219,6 +222,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 260,
     unloadKg: 2100,
     visaStatus: '免签',
+    version: 1,
     createdAt: hoursAgo(1),
   },
   {
@@ -232,6 +236,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 420,
     unloadKg: 0,
     visaStatus: '已签证',
+    version: 1,
     createdAt: daysAgo(1),
   },
   {
@@ -245,6 +250,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 300,
     unloadKg: 3600,
     visaStatus: '已签证',
+    version: 1,
     createdAt: daysAgo(1),
   },
   {
@@ -258,6 +264,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 950,
     unloadKg: 0,
     visaStatus: '已签证',
+    version: 1,
     createdAt: daysAgo(2),
   },
   {
@@ -271,6 +278,7 @@ export const SEED_CALLS: PortCall[] = [
     fuelL: 540,
     unloadKg: 0,
     visaStatus: '待签证',
+    version: 1,
     createdAt: daysAgo(4),
   },
 ];

@@ -22,6 +22,26 @@ export interface Berth {
   status: BerthStatus;
   /** 泊位设计水深 m */
   designDepth: number;
+  /** 乐观锁版本号：每次占用 / 释放 / 维修状态变更时 +1，提交时核对 */
+  version: number;
+}
+
+/**
+ * 泊位状态冲突错误。
+ * 提交前在事务内重新核对泊位，若实际状态 / 版本与表单选中时不一致（被其他标签页或值班员改过），
+ * 抛出此错误，调用方应保留表单并提示重新选择泊位。
+ */
+export class BerthConflictError extends Error {
+  constructor(
+    public readonly berthNo: string,
+    public readonly expected: { status: BerthStatus; version: number },
+    public readonly actual: { status: BerthStatus; version: number },
+  ) {
+    super(
+      `泊位 ${berthNo} 状态已变化（期望 ${expected.status} v${expected.version}，实际 ${actual.status} v${actual.version}），请重新选择泊位`,
+    );
+    this.name = 'BerthConflictError';
+  }
 }
 
 /** 泊位占用聚合结果（useBerthStatus 输出） */
